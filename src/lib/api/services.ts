@@ -45,6 +45,67 @@ const buildQuery = (params: ListParams) => {
   return query.toString();
 };
 
+/* ------------------------------ Mappers ---------------------------------- */
+/**
+ * The backend returns Prisma rows with nested relations; the UI expects the
+ * flattened shapes in `@/lib/types`. These mappers are the adapter layer so
+ * pages, tables and hooks stay untouched.
+ */
+
+const FALLBACK_COVER = "#6366f1";
+
+const bookStatus = (available: number, total: number): Book["status"] => {
+  if (available <= 0) return "out-of-stock";
+  if (available <= 2 || available < total * 0.2) return "low-stock";
+  return "available";
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapBook = (raw: any): Book => ({
+  ...raw,
+  categoryName: raw.categoryName ?? raw.category?.name ?? "—",
+  authorName: raw.authorName ?? raw.author?.name ?? "—",
+  publisherName: raw.publisherName ?? raw.publisher?.name ?? "—",
+  coverColor: raw.coverColor ?? FALLBACK_COVER,
+  rating: raw.rating ?? 0,
+  status: bookStatus(raw.availableCopies, raw.totalCopies),
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapBorrow = (raw: any): Borrow => ({
+  ...raw,
+  bookTitle: raw.bookTitle ?? raw.book?.title ?? "—",
+  memberName: raw.memberName ?? raw.member?.name ?? "—",
+  fine: raw.fine ?? raw.fineAmount ?? 0,
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapReservation = (raw: any): Reservation => ({
+  ...raw,
+  bookTitle: raw.bookTitle ?? raw.book?.title ?? "—",
+  memberName: raw.memberName ?? raw.member?.name ?? "—",
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapFine = (raw: any): Fine => ({
+  ...raw,
+  memberName: raw.memberName ?? raw.member?.name ?? "—",
+  bookTitle: raw.bookTitle ?? raw.borrow?.book?.title ?? "—",
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapDocument = (raw: any): LibraryDocument => ({
+  ...raw,
+  uploadedAt: raw.uploadedAt ?? raw.createdAt,
+  uploadedBy: raw.user?.name ?? raw.uploadedBy ?? "—",
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapPage = <T>(data: any, map: (raw: any) => T): Paginated<T> => ({
+  ...data,
+  items: (data.items ?? []).map(map),
+});
+
 /* ------------------------------- Auth ---------------------------------- */
 
 export const authApi = {
@@ -106,11 +167,11 @@ export const dashboardApi = {
   },
   async upcomingDue(): Promise<Borrow[]> {
     const res = await apiClient.get("/reports/dashboard/upcoming-due");
-    return res.data;
+    return res.data.map(mapBorrow);
   },
   async mostBorrowed(): Promise<Book[]> {
     const res = await apiClient.get("/reports/books/top-borrowed?limit=5");
-    return res.data;
+    return res.data.map(mapBook);
   },
   async newestMembers(): Promise<Member[]> {
     const res = await apiClient.get("/reports/members/active?limit=5");
@@ -129,26 +190,26 @@ export type BookInput = Omit<
 export const booksApi = {
   async list(params: ListParams): Promise<Paginated<Book>> {
     const res = await apiClient.get(`/books?${buildQuery(params)}`);
-    return res.data;
+    return mapPage(res.data, mapBook);
   },
   async get(id: string): Promise<Book> {
     const res = await apiClient.get(`/books/${id}`);
-    return res.data;
+    return mapBook(res.data);
   },
   async create(input: BookInput): Promise<Book> {
     const res = await apiClient.post("/books", input);
-    return res.data;
+    return mapBook(res.data);
   },
   async update(id: string, input: Partial<BookInput>): Promise<Book> {
     const res = await apiClient.put(`/books/${id}`, input);
-    return res.data;
+    return mapBook(res.data);
   },
   async remove(id: string): Promise<void> {
     await apiClient.delete(`/books/${id}`);
   },
   async borrowHistory(bookId: string): Promise<Borrow[]> {
     const res = await apiClient.get(`/books/${bookId}/borrow-history`);
-    return res.data;
+    return res.data.map(mapBorrow);
   },
 };
 
@@ -212,11 +273,11 @@ export const membersApi = {
   },
   async borrowHistory(memberId: string): Promise<Borrow[]> {
     const res = await apiClient.get(`/members/${memberId}/borrow-history`);
-    return res.data;
+    return res.data.map(mapBorrow);
   },
   async fineHistory(memberId: string): Promise<Fine[]> {
     const res = await apiClient.get(`/members/${memberId}/fine-history`);
-    return res.data;
+    return res.data.map(mapFine);
   },
 };
 
@@ -225,30 +286,30 @@ export const membersApi = {
 export const borrowsApi = {
   async list(params: ListParams): Promise<Paginated<Borrow>> {
     const res = await apiClient.get(`/borrows?${buildQuery(params)}`);
-    return res.data;
+    return mapPage(res.data, mapBorrow);
   },
   async issue(input: { bookId: string; memberId: string; dueAt: string }): Promise<Borrow> {
     const res = await apiClient.post("/borrows", input);
-    return res.data;
+    return mapBorrow(res.data);
   },
   async returnBook(id: string): Promise<Borrow> {
     const res = await apiClient.post(`/borrows/${id}/return`);
-    return res.data;
+    return mapBorrow(res.data);
   },
   async renew(id: string): Promise<Borrow> {
     const res = await apiClient.post(`/borrows/${id}/renew`);
-    return res.data;
+    return mapBorrow(res.data);
   },
 };
 
 export const finesApi = {
   async list(params: ListParams): Promise<Paginated<Fine>> {
     const res = await apiClient.get(`/fines?${buildQuery(params)}`);
-    return res.data;
+    return mapPage(res.data, mapFine);
   },
   async settle(id: string, mode: "paid" | "waived"): Promise<Fine> {
     const res = await apiClient.patch(`/fines/${id}/settle`, { status: mode });
-    return res.data;
+    return mapFine(res.data);
   },
 };
 
@@ -257,15 +318,15 @@ export const finesApi = {
 export const reservationsApi = {
   async list(params: ListParams): Promise<Paginated<Reservation>> {
     const res = await apiClient.get(`/reservations?${buildQuery(params)}`);
-    return res.data;
+    return mapPage(res.data, mapReservation);
   },
   async create(input: { bookId: string; memberId: string }): Promise<Reservation> {
     const res = await apiClient.post("/reservations", input);
-    return res.data;
+    return mapReservation(res.data);
   },
   async updateStatus(id: string, status: Reservation["status"]): Promise<Reservation> {
     const res = await apiClient.patch(`/reservations/${id}/status`, { status });
-    return res.data;
+    return mapReservation(res.data);
   },
 };
 
@@ -274,7 +335,7 @@ export const reservationsApi = {
 export const documentsApi = {
   async list(params: ListParams): Promise<Paginated<LibraryDocument>> {
     const res = await apiClient.get(`/documents?${buildQuery(params)}`);
-    return res.data;
+    return mapPage(res.data, mapDocument);
   },
   async upload(file: File): Promise<LibraryDocument> {
     const formData = new FormData();
@@ -282,7 +343,7 @@ export const documentsApi = {
     const res = await apiClient.post("/documents", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return res.data;
+    return mapDocument(res.data);
   },
   async remove(id: string): Promise<void> {
     await apiClient.delete(`/documents/${id}`);
@@ -380,9 +441,9 @@ export const searchApi = {
       apiClient.get(`/documents?search=${query}&pageSize=5`),
     ]);
     return {
-      books: books.data.items || [],
+      books: (books.data.items || []).map(mapBook),
       members: members.data.items || [],
-      documents: docs.data.items || [],
+      documents: (docs.data.items || []).map(mapDocument),
     };
   },
 };
