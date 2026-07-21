@@ -362,12 +362,52 @@ export const notificationsApi = {
 
 /* -------------------------------- Chat ----------------------------------- */
 
-const uid = () => `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-const localConversations: Conversation[] = []; // Store conversations locally
+const uid = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+/**
+ * Conversations are persisted client-side in localStorage so history survives
+ * page reloads. The backend `/rag/chat` endpoint is stateless (it only answers
+ * a single question), so the transcript lives entirely on the client.
+ */
+const CHAT_STORAGE_KEY = "library-rag:conversations";
+
+const loadConversations = (): Conversation[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Conversation[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveConversations = (convs: Conversation[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(convs));
+  } catch {
+    /* storage full or unavailable — keep the in-memory copy */
+  }
+};
+
+// In-memory cache, hydrated from localStorage on first access.
+let localConversations: Conversation[] | null = null;
+
+const store = (): Conversation[] => {
+  if (localConversations === null) localConversations = loadConversations();
+  return localConversations;
+};
+
+const persist = () => saveConversations(store());
 
 export const chatApi = {
   async conversations(): Promise<Conversation[]> {
-    return [...localConversations].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+    return [...store()].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
   },
   async createConversation(firstMessage: string): Promise<Conversation> {
     const conv: Conversation = {
@@ -376,51 +416,94 @@ export const chatApi = {
       updatedAt: new Date().toISOString(),
       messages: [],
     };
-    localConversations.unshift(conv);
+    store().unshift(conv);
+    persist();
     return conv;
   },
   async deleteConversation(id: string): Promise<void> {
-    const idx = localConversations.findIndex((c) => c.id === id);
-    if (idx >= 0) localConversations.splice(idx, 1);
+    const convs = store();
+    const idx = convs.findIndex((c) => c.id === id);
+    if (idx >= 0) {
+      convs.splice(idx, 1);
+      persist();
+    }
   },
-  async ask(conversationId: string, question: string): Promise<ChatMessage> {
-    const conv = localConversations.find((c) => c.id === conversationId);
-    
+  /**
+   * Ask a question within a conversation. Both the user message and the AI
+   * answer are appended to the persisted conversation and returned together,
+   * so the caller never has to construct or dedupe messages itself.
+   */
+  async ask(
+    conversationId: string,
+    question: string,
+  ): Promise<{ conversation: Conversation; userMsg: ChatMessage; assistantMsg: ChatMessage }> {
+    const conv = store().find((c) => c.id === conversationId);
+    if (!conv) throw new Error("Conversation not found");
+
     // Call real RAG backend
     const res = await apiClient.post("/rag/chat", { question, conversationId });
     const { answer, sources } = res.data;
 
-    const userMsg: ChatMessage = { id: uid(), role: "user", content: question, createdAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const userMsg: ChatMessage = { id: uid(), role: "user", content: question, createdAt: now };
     const assistantMsg: ChatMessage = {
       id: uid(),
       role: "assistant",
       content: answer,
-      sources: sources,
+      sources,
       createdAt: new Date().toISOString(),
     };
 
-    if (conv) {
-      conv.messages.push(userMsg, assistantMsg);
-      conv.updatedAt = assistantMsg.createdAt;
-    }
-    return assistantMsg;
+    conv.messages.push(userMsg, assistantMsg);
+    conv.updatedAt = assistantMsg.createdAt;
+    persist();
+
+    return { conversation: { ...conv, messages: [...conv.messages] }, userMsg, assistantMsg };
   },
 };
 
 /* ------------------------------- Reports --------------------------------- */
 
 export const reportsApi = {
-  async borrowReport() {
-    return { trend: [], byStatus: [], rows: [] }; // Need aggregation endpoint
+  async borrowReport(): Promise<{
+    trend: BorrowTrendPoint[];
+    byStatus: { name: string; value: number }[];
+    rows: Borrow[];
+  }> {
+    const res = await apiClient.get("/reports/borrows");
+    return { ...res.data, rows: (res.data.rows ?? []).map(mapBorrow) };
   },
-  async memberReport() {
-    return { byPlan: [], byStatus: [], growth: [], top: [] };
+  async memberReport(): Promise<{
+    byPlan: { name: string; value: number }[];
+    byStatus: { name: string; value: number }[];
+    growth: MonthlyStatPoint[];
+    top: Member[];
+  }> {
+    const res = await apiClient.get("/reports/members");
+    return res.data;
   },
-  async bookReport() {
-    return { byCategory: [], top: [], lowStock: [] };
+  async bookReport(): Promise<{
+    byCategory: { name: string; value: number }[];
+    top: Book[];
+    lowStock: Book[];
+  }> {
+    const res = await apiClient.get("/reports/books");
+    return {
+      ...res.data,
+      top: (res.data.top ?? []).map(mapBook),
+      lowStock: (res.data.lowStock ?? []).map(mapBook),
+    };
   },
-  async fineReport() {
-    return { byStatus: [], monthly: [], rows: [], total: 0, collected: 0, outstanding: 0 };
+  async fineReport(): Promise<{
+    byStatus: { name: string; value: number }[];
+    monthly: { month: string; finesCollected: number }[];
+    rows: Fine[];
+    total: number;
+    collected: number;
+    outstanding: number;
+  }> {
+    const res = await apiClient.get("/reports/fines");
+    return { ...res.data, rows: (res.data.rows ?? []).map(mapFine) };
   },
 };
 

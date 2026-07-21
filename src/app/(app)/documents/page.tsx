@@ -63,13 +63,6 @@ const ACCEPTED = {
   "image/webp": [".webp"],
 };
 
-function getDocType(file: File): DocumentType {
-  if (file.type === "application/pdf") return "pdf";
-  if (file.type.includes("wordprocessingml")) return "docx";
-  if (file.type === "text/plain") return "txt";
-  return "image";
-}
-
 function UploadZone({
   onFilesSelected,
   isUploading,
@@ -202,11 +195,7 @@ export default function DocumentsPage() {
       const results = [];
       for (const file of files) {
         setUploadProgress(Math.round((results.length / files.length) * 80));
-        const doc = await documentsApi.upload({
-          name: file.name,
-          sizeBytes: file.size,
-          type: getDocType(file),
-        });
+        const doc = await documentsApi.upload(file);
         results.push(doc);
       }
       setUploadProgress(100);

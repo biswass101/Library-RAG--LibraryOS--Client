@@ -105,11 +105,11 @@ export function BookForm({ book }: BookFormProps) {
           authorId: "",
           publisherId: "",
           publishedYear: currentYear,
-          totalCopies: 1,
-          availableCopies: 1,
+          totalCopies: undefined as unknown as number,
+          availableCopies: undefined as unknown as number,
           shelfLocation: "",
           language: "English",
-          pages: 100,
+          pages: undefined as unknown as number,
           description: "",
         },
   });
@@ -192,7 +192,16 @@ export function BookForm({ book }: BookFormProps) {
                 <FormItem>
                   <FormLabel>Published year</FormLabel>
                   <FormControl>
-                    <Input type="number" inputMode="numeric" disabled={isBusy} {...field} />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder={`e.g. ${currentYear}`}
+                      disabled={isBusy}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={numberChange(field.onChange)}
+                      onFocus={(e) => e.target.select()}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -312,7 +321,23 @@ export function BookForm({ book }: BookFormProps) {
                 <FormItem>
                   <FormLabel>Total copies</FormLabel>
                   <FormControl>
-                    <Input type="number" inputMode="numeric" min={1} disabled={isBusy} {...field} />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      placeholder="e.g. 1"
+                      disabled={isBusy}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? undefined : e.target.valueAsNumber;
+                        field.onChange(val);
+                        if (form.getValues("availableCopies") === undefined) {
+                          form.setValue("availableCopies", val as number);
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -325,7 +350,17 @@ export function BookForm({ book }: BookFormProps) {
                 <FormItem>
                   <FormLabel>Available copies</FormLabel>
                   <FormControl>
-                    <Input type="number" inputMode="numeric" min={0} disabled={isBusy} {...field} />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="e.g. 1"
+                      disabled={isBusy}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={numberChange(field.onChange)}
+                      onFocus={(e) => e.target.select()}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -338,7 +373,17 @@ export function BookForm({ book }: BookFormProps) {
                 <FormItem>
                   <FormLabel>Pages</FormLabel>
                   <FormControl>
-                    <Input type="number" inputMode="numeric" min={1} disabled={isBusy} {...field} />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      placeholder="e.g. 100"
+                      disabled={isBusy}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={numberChange(field.onChange)}
+                      onFocus={(e) => e.target.select()}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

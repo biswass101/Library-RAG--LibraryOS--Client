@@ -268,7 +268,10 @@ function ConvItem({
 export default function ChatPage() {
   const queryClient = useQueryClient();
   const [activeConvId, setActiveConvId] = React.useState<string | null>(null);
-  const [localMessages, setLocalMessages] = React.useState<ChatMessage[]>([]);
+  // Transient bubble for the question currently in flight. The persisted
+  // conversation is the single source of truth for everything already
+  // answered, so this is the ONLY place an un-persisted message lives.
+  const [pendingUserMsg, setPendingUserMsg] = React.useState<ChatMessage | null>(null);
   const [input, setInput] = React.useState("");
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [streamingMsgId, setStreamingMsgId] = React.useState<string | null>(null);
@@ -285,15 +288,26 @@ export default function ChatPage() {
     [conversations, activeConvId]
   );
 
-  // Merge persisted messages with local
+  // The persisted transcript, plus the in-flight question if one is pending.
   const messages = React.useMemo(() => {
-    if (!activeConv) return localMessages;
-    return [...activeConv.messages, ...localMessages.filter((m) => !activeConv.messages.find((am) => am.id === m.id))];
-  }, [activeConv, localMessages]);
+    const base = activeConv?.messages ?? [];
+    return pendingUserMsg ? [...base, pendingUserMsg] : base;
+  }, [activeConv, pendingUserMsg]);
 
+  // Snap to the newest message whenever the transcript changes.
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isStreaming]);
+
+  // Keep the view pinned to the bottom while the answer types out word-by-word
+  // (the bubble grows without the `messages` array changing).
+  React.useEffect(() => {
+    if (!streamingMsgId) return;
+    const interval = window.setInterval(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 150);
+    return () => window.clearInterval(interval);
+  }, [streamingMsgId]);
 
   const askMutation = useMutation({
     mutationFn: async (question: string) => {
@@ -302,36 +316,47 @@ export default function ChatPage() {
         const newConv = await chatApi.createConversation(question);
         convId = newConv.id;
         setActiveConvId(newConv.id);
-        queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
+        // Seed the cache so the sidebar shows the new conversation immediately.
+        queryClient.setQueryData<Conversation[]>(["chat", "conversations"], (old) =>
+          old ? [newConv, ...old] : [newConv]
+        );
       }
 
-      // Optimistically add user message
-      const userMsg: ChatMessage = {
-        id: `local-u-${Date.now()}`,
+      // Show the question right away as a transient bubble.
+      setPendingUserMsg({
+        id: `pending-${Date.now()}`,
         role: "user",
         content: question,
         createdAt: new Date().toISOString(),
-      };
-      setLocalMessages((prev) => [...prev, userMsg]);
+      });
       setIsStreaming(true);
 
-      const aiMsg = await chatApi.ask(convId, question);
-      return aiMsg;
+      return chatApi.ask(convId, question);
     },
-    onSuccess: (aiMsg) => {
-      setStreamingMsgId(aiMsg.id);
-      setLocalMessages((prev) => [...prev, aiMsg]);
-      queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
+    onSuccess: ({ conversation, assistantMsg }) => {
+      // Commit the persisted conversation into the cache and drop the
+      // transient bubble in the same render — no flicker, no duplicate.
+      queryClient.setQueryData<Conversation[]>(["chat", "conversations"], (old) => {
+        const list = old ? [...old] : [];
+        const idx = list.findIndex((c) => c.id === conversation.id);
+        if (idx >= 0) list[idx] = conversation;
+        else list.unshift(conversation);
+        return list;
+      });
+      setPendingUserMsg(null);
+      setStreamingMsgId(assistantMsg.id);
 
-      // End streaming after approximate word count time
-      const wordCount = aiMsg.content.split(" ").length;
-      setTimeout(() => {
+      // End the streaming reveal after roughly the time it takes to type out.
+      const wordCount = assistantMsg.content.split(" ").length;
+      window.setTimeout(() => {
         setIsStreaming(false);
         setStreamingMsgId(null);
       }, wordCount * 30 + 500);
     },
     onError: () => {
+      setPendingUserMsg(null);
       setIsStreaming(false);
+      setStreamingMsgId(null);
       toast.error("AI failed to respond", { description: "Please try again." });
     },
   });
@@ -342,7 +367,7 @@ export default function ChatPage() {
       queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
       if (activeConvId === id) {
         setActiveConvId(null);
-        setLocalMessages([]);
+        setPendingUserMsg(null);
       }
       toast.success("Conversation deleted");
     },
@@ -364,14 +389,15 @@ export default function ChatPage() {
 
   const startNew = () => {
     setActiveConvId(null);
-    setLocalMessages([]);
+    setPendingUserMsg(null);
     setInput("");
     textareaRef.current?.focus();
   };
 
   const selectConv = (id: string) => {
+    if (isStreaming || askMutation.isPending) return;
     setActiveConvId(id);
-    setLocalMessages([]);
+    setPendingUserMsg(null);
   };
 
   return (
