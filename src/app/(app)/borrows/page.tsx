@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   BookCopy,
   Calendar,
+  DollarSign,
   MoreHorizontal,
   RefreshCw,
   Undo2,
@@ -209,10 +210,18 @@ export default function BorrowsPage() {
         title="Borrows"
         description="Track all book loans, returns, renewals, and fines."
         actions={
-          <Button onClick={() => setIssueOpen(true)}>
-            <ArrowLeftRight data-icon="inline-start" />
-            Issue Book
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/borrows/fines">
+                <DollarSign data-icon="inline-start" />
+                Fines
+              </Link>
+            </Button>
+            <Button onClick={() => setIssueOpen(true)}>
+              <ArrowLeftRight data-icon="inline-start" />
+              Issue Book
+            </Button>
+          </div>
         }
       />
 

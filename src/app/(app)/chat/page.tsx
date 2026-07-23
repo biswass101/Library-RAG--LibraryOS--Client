@@ -144,18 +144,18 @@ function ChatBubble({ message, isStreaming }: { message: ChatMessage; isStreamin
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4 text-primary" />}
       </div>
 
-      <div className={`max-w-[80%] space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+      <div className={`min-w-0 max-w-[80%] space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
         <div
-          className={`rounded-2xl px-4 py-3 ${
+          className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-4 py-3 ${
             isUser
               ? "rounded-br-sm bg-primary text-primary-foreground"
               : "rounded-bl-sm bg-muted"
           }`}
         >
           {isUser ? (
-            <p className="text-sm leading-relaxed">{displayedContent}</p>
+            <p className="text-sm leading-relaxed wrap-break-word whitespace-pre-wrap">{displayedContent}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed wrap-break-word [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -166,7 +166,7 @@ function ChatBubble({ message, isStreaming }: { message: ChatMessage; isStreamin
                         style={vscDarkPlus}
                         language={match[1]}
                         PreTag="div"
-                        className="rounded-md my-2"
+                        className="rounded-md my-2 max-w-full overflow-x-auto"
                         {...props}
                       >
                         {String(children).replace(/\n$/, "")}
@@ -191,16 +191,11 @@ function ChatBubble({ message, isStreaming }: { message: ChatMessage; isStreamin
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="w-full space-y-2"
+            className="w-full"
           >
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <div className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
               <FileText className="h-3 w-3" />
-              Sources ({message.sources.length})
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {message.sources.map((s, i) => (
-                <SourceCard key={i} source={s} />
-              ))}
+              {message.sources.length} source{message.sources.length === 1 ? "" : "s"}
             </div>
           </motion.div>
         )}
@@ -401,9 +396,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100svh-3.5rem)] overflow-hidden">
+    <div className="flex h-[calc(100svh-3.5rem)] min-h-0 overflow-hidden">
       {/* ── Sidebar ─────────────────────────────── */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r bg-sidebar lg:flex">
+      <aside className="hidden min-h-0 w-64 shrink-0 flex-col border-r bg-sidebar lg:flex">
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="text-sm font-semibold text-sidebar-foreground">Conversations</h2>
           <Button size="icon-sm" variant="ghost" onClick={startNew} title="New conversation">
@@ -439,7 +434,7 @@ export default function ChatPage() {
       </aside>
 
       {/* ── Chat area ──────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
@@ -461,8 +456,8 @@ export default function ChatPage() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 px-4 py-6">
-          <div className="mx-auto max-w-3xl space-y-6">
+        <ScrollArea className="min-h-0 flex-1 px-4 py-6 [&>[data-slot=scroll-area-viewport]>div]:block!">
+          <div className="mx-auto w-full max-w-3xl space-y-6">
             <AnimatePresence initial={false}>
               {messages.length === 0 ? (
                 /* Welcome / suggestions */

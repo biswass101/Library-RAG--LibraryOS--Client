@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +15,18 @@ interface SidebarNavProps {
 /** Sidebar content — reused by the desktop rail and the mobile drawer. */
 export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
-  const BrandIcon = BRAND.icon;
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-          <BrandIcon className="size-4.5" aria-hidden />
+        <div className="flex size-8 overflow-hidden rounded-lg bg-primary/10 shadow-sm">
+          <Image
+            src="/Library.jpg"
+            alt="Library logo"
+            width={32}
+            height={32}
+            className="h-full w-full object-cover"
+          />
         </div>
         <div className="leading-tight">
           <p className="text-sm font-semibold tracking-tight">{BRAND.name}</p>

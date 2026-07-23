@@ -45,7 +45,7 @@ export default function LoginPage() {
       toast.success("Welcome back!", { description: "You have signed in successfully." });
       router.push("/dashboard");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to sign in.";
+      const message = "Invalid credentials.";
       form.setError("root", { message });
       toast.error("Sign in failed", { description: message });
     }
@@ -133,11 +133,6 @@ export default function LoginPage() {
           </Button>
         </form>
       </Form>
-
-      <p className="rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Demo:</span> use any email with a password of
-        6+ characters to explore the app.
-      </p>
     </div>
   );
 }

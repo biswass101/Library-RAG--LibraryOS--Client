@@ -4,6 +4,7 @@ import type {
   AppNotification,
   Author,
   Book,
+  ShelfSlot,
   Borrow,
   BorrowTrendPoint,
   Category,
@@ -131,8 +132,12 @@ export const authApi = {
   async updateProfile(patch: Partial<Pick<User, "name" | "email" | "phone" | "bio">>): Promise<User> {
     return patch as User; // Placeholder
   },
-  async changePassword(_current: string, _next: string): Promise<{ message: string }> {
-    return { message: "Password updated." }; // Placeholder
+  async changePassword(current: string, next: string): Promise<{ message: string }> {
+    const res = await apiClient.post("/auth/change-password", {
+      currentPassword: current,
+      newPassword: next,
+    });
+    return res.data;
   },
 };
 
@@ -187,6 +192,10 @@ export type BookInput = Omit<
   | "rating" | "borrowCount" | "createdAt" | "coverColor"
 >;
 
+export type ShelfSlotInput = Omit<ShelfSlot, "id" | "active" | "books" | "createdAt" | "updatedAt"> & {
+  active?: boolean;
+};
+
 export const booksApi = {
   async list(params: ListParams): Promise<Paginated<Book>> {
     const res = await apiClient.get(`/books?${buildQuery(params)}`);
@@ -210,6 +219,21 @@ export const booksApi = {
   async borrowHistory(bookId: string): Promise<Borrow[]> {
     const res = await apiClient.get(`/books/${bookId}/borrow-history`);
     return res.data.map(mapBorrow);
+  },
+  async listShelfSlots(): Promise<ShelfSlot[]> {
+    const res = await apiClient.get("/books/shelf-slots");
+    return res.data;
+  },
+  async createShelfSlot(input: ShelfSlotInput): Promise<ShelfSlot> {
+    const res = await apiClient.post("/books/shelf-slots", input);
+    return res.data;
+  },
+  async updateShelfSlot(id: string, input: Partial<ShelfSlotInput>): Promise<ShelfSlot> {
+    const res = await apiClient.put(`/books/shelf-slots/${id}`, input);
+    return res.data;
+  },
+  async removeShelfSlot(id: string): Promise<void> {
+    await apiClient.delete(`/books/shelf-slots/${id}`);
   },
 };
 
@@ -440,8 +464,12 @@ export const chatApi = {
     const conv = store().find((c) => c.id === conversationId);
     if (!conv) throw new Error("Conversation not found");
 
-    // Call real RAG backend
-    const res = await apiClient.post("/rag/chat", { question, conversationId });
+    const history = conv.messages
+      .slice(-8)
+      .map(({ role, content }) => ({ role, content }));
+
+    // Call real RAG backend with recent conversation turns for follow-up context
+    const res = await apiClient.post("/rag/chat", { question, conversationId, history });
     const { answer, sources } = res.data;
 
     const now = new Date().toISOString();

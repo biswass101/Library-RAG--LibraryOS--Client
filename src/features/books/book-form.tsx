@@ -52,6 +52,7 @@ const bookSchema = z
     totalCopies: z.number({ message: "Enter a number" }).int().min(1, "At least 1 copy"),
     availableCopies: z.number({ message: "Enter a number" }).int().min(0, "Cannot be negative"),
     shelfLocation: z.string().min(1, "Shelf location is required"),
+    shelfSlotId: z.string().optional(),
     language: z.string().min(2, "Language is required"),
     pages: z.number({ message: "Enter a number" }).int().min(1, "At least 1 page"),
     description: z.string().min(10, "Add a short description (10+ characters)"),
@@ -80,6 +81,7 @@ export function BookForm({ book }: BookFormProps) {
   const categories = useQuery({ queryKey: ["categories", "all"], queryFn: categoriesApi.all });
   const authors = useQuery({ queryKey: ["authors", "all"], queryFn: authorsApi.all });
   const publishers = useQuery({ queryKey: ["publishers", "all"], queryFn: publishersApi.all });
+  const shelfSlots = useQuery({ queryKey: ["shelf-slots"], queryFn: booksApi.listShelfSlots });
 
   const form = useForm<BookFormValues>({
     resolver: zodResolver(bookSchema),
@@ -94,6 +96,7 @@ export function BookForm({ book }: BookFormProps) {
           totalCopies: book.totalCopies,
           availableCopies: book.availableCopies,
           shelfLocation: book.shelfLocation,
+          shelfSlotId: book.shelfSlotId ?? "",
           language: book.language,
           pages: book.pages,
           description: book.description,
@@ -108,6 +111,7 @@ export function BookForm({ book }: BookFormProps) {
           totalCopies: undefined as unknown as number,
           availableCopies: undefined as unknown as number,
           shelfLocation: "",
+          shelfSlotId: "",
           language: "English",
           pages: undefined as unknown as number,
           description: "",
@@ -115,8 +119,10 @@ export function BookForm({ book }: BookFormProps) {
   });
 
   const mutation = useMutation({
-    mutationFn: (values: BookFormValues) =>
-      isEdit ? booksApi.update(book!.id, values as BookInput) : booksApi.create(values as BookInput),
+    mutationFn: (values: BookFormValues) => {
+      const payload = { ...values, shelfSlotId: values.shelfSlotId || undefined };
+      return isEdit ? booksApi.update(book!.id, payload as BookInput) : booksApi.create(payload as BookInput);
+    },
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -133,7 +139,16 @@ export function BookForm({ book }: BookFormProps) {
   });
 
   const isBusy = mutation.isPending;
-  const referencesLoading = categories.isPending || authors.isPending || publishers.isPending;
+  const referencesLoading = categories.isPending || authors.isPending || publishers.isPending || shelfSlots.isPending;
+  const currentBookId = book?.id;
+  const selectedSlotId = form.watch("shelfSlotId");
+  const slotOptions = (shelfSlots.data ?? []).map((slot) => {
+    const usedByOthers = (slot.books ?? []).filter((book) => book.id !== currentBookId).length;
+    const remaining = Math.max(0, slot.capacity - usedByOthers);
+    return { slot, remaining, selectable: remaining > 0 || slot.id === selectedSlotId };
+  });
+  const selectedSlot = slotOptions.find((entry) => entry.slot.id === selectedSlotId)?.slot ?? null;
+  const selectedSlotRemaining = slotOptions.find((entry) => entry.slot.id === selectedSlotId)?.remaining ?? 0;
 
   if (referencesLoading) {
     return (
@@ -391,6 +406,45 @@ export function BookForm({ book }: BookFormProps) {
             />
             <FormField
               control={form.control}
+              name="shelfSlotId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Shelf slot</FormLabel>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      const slot = slotOptions.find((entry) => entry.slot.id === value)?.slot;
+                      if (slot) form.setValue("shelfLocation", slot.code);
+                    }}
+                    disabled={isBusy}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose a shelf slot" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {slotOptions.map(({ slot, remaining, selectable }) => (
+                        <SelectItem key={slot.id} value={slot.id} disabled={!selectable}>
+                          {slot.code} • {slot.label} ({remaining}/{slot.capacity} free)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedSlot ? (
+                    <FormDescription>
+                      {selectedSlot.code} • {selectedSlot.label}. {selectedSlotRemaining} of {selectedSlot.capacity} compartments available.
+                    </FormDescription>
+                  ) : (
+                    <FormDescription>Choose an available slot for this book.</FormDescription>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="shelfLocation"
               render={({ field }) => (
                 <FormItem>
@@ -398,7 +452,7 @@ export function BookForm({ book }: BookFormProps) {
                   <FormControl>
                     <Input placeholder="e.g. T3-18" disabled={isBusy} {...field} />
                   </FormControl>
-                  <FormDescription>Aisle-shelf code</FormDescription>
+                  <FormDescription>Physical aisle or shelf code</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

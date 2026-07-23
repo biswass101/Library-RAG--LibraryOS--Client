@@ -41,6 +41,18 @@ export interface Publisher {
 
 export type BookStatus = "available" | "low-stock" | "out-of-stock";
 
+export interface ShelfSlot {
+  id: string;
+  code: string;
+  label: string;
+  capacity: number;
+  description?: string | null;
+  active: boolean;
+  books?: Array<{ id: string; title: string; availableCopies: number }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -55,6 +67,8 @@ export interface Book {
   totalCopies: number;
   availableCopies: number;
   shelfLocation: string;
+  shelfSlotId?: string | null;
+  shelfSlot?: ShelfSlot | null;
   language: string;
   pages: number;
   description: string;

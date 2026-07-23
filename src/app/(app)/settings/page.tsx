@@ -190,7 +190,13 @@ function SecurityTab() {
       form.reset();
       toast.success("Password changed", { description: "You can now use your new password." });
     },
-    onError: () => toast.error("Failed to change password"),
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (error instanceof Error ? error.message : "Please try again.");
+      form.setError("current", { type: "server", message });
+      toast.error("Unable to change password", { description: message });
+    },
   });
 
   const isBusy = mutation.isPending;

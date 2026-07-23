@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { BookPlus, Eye, MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
+import { BookPlus, Eye, MoreHorizontal, Pencil, Boxes, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ export default function BooksPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<Book | null>(null);
 
   const { data: allCategories } = useQuery({ queryKey: ["categories", "all"], queryFn: categoriesApi.all });
+  const { data: shelfSlots } = useQuery({ queryKey: ["shelf-slots"], queryFn: booksApi.listShelfSlots });
 
   const deleteMutation = useMutation({
     mutationFn: booksApi.remove,
@@ -129,14 +130,64 @@ export default function BooksPage() {
         title="Books"
         description="Browse, search and manage the entire catalog."
         actions={
-          <Button asChild>
-            <Link href="/books/new">
-              <BookPlus data-icon="inline-start" />
-              Add Book
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/books/shelves">
+                <Boxes data-icon="inline-start" />
+                Shelf management
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/books/new">
+                <BookPlus data-icon="inline-start" />
+                Add Book
+              </Link>
+            </Button>
+          </div>
         }
       />
+
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-xl border bg-background/70 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">Shelf overview</h3>
+              <p className="text-sm text-muted-foreground">Existing books are grouped by slot and capacity.</p>
+            </div>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs">Smart layout</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {(shelfSlots ?? []).map((slot) => {
+              const used = (slot.books ?? []).reduce((sum, book) => sum + Math.max(0, book.availableCopies), 0);
+              const remaining = Math.max(0, slot.capacity - used);
+              return (
+                <div key={slot.id} className="rounded-lg border bg-card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{slot.code}</p>
+                      <p className="text-sm text-muted-foreground">{slot.label}</p>
+                    </div>
+                    <span className="rounded-full bg-muted px-2 py-1 text-[11px]">{remaining}/{slot.capacity} free</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Boxes className="size-4" />
+                    <span>{(slot.books ?? []).length} books assigned</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-background/70 p-4">
+          <h3 className="font-medium">How it works</h3>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <li>• Add shelf slots with a code, label, and capacity.</li>
+            <li>• Select a slot in the book form to assign a book to that shelf section.</li>
+            <li>• The slot badge shows available capacity live in the UI.</li>
+          </ul>
+        </div>
+      </div>
 
       <DataTable<Book>
         queryKey={["books"]}
