@@ -81,7 +81,11 @@ export function BookForm({ book }: BookFormProps) {
   const categories = useQuery({ queryKey: ["categories", "all"], queryFn: categoriesApi.all });
   const authors = useQuery({ queryKey: ["authors", "all"], queryFn: authorsApi.all });
   const publishers = useQuery({ queryKey: ["publishers", "all"], queryFn: publishersApi.all });
-  const shelfSlots = useQuery({ queryKey: ["shelf-slots"], queryFn: booksApi.listShelfSlots });
+  const shelfSlots = useQuery({
+    queryKey: ["shelf-slots"],
+    queryFn: booksApi.listShelfSlots,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const form = useForm<BookFormValues>({
     resolver: zodResolver(bookSchema),
@@ -123,9 +127,15 @@ export function BookForm({ book }: BookFormProps) {
       const payload = { ...values, shelfSlotId: values.shelfSlotId || undefined };
       return isEdit ? booksApi.update(book!.id, payload as BookInput) : booksApi.create(payload as BookInput);
     },
-    onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: ["books"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async (saved) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["books"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["authors"] }),
+        queryClient.invalidateQueries({ queryKey: ["publishers"] }),
+        queryClient.invalidateQueries({ queryKey: ["shelf-slots"] }),
+      ]);
       toast.success(isEdit ? "Book updated" : "Book added", {
         description: `"${saved.title}" has been ${isEdit ? "updated" : "added to the catalog"}.`,
       });
@@ -142,11 +152,13 @@ export function BookForm({ book }: BookFormProps) {
   const referencesLoading = categories.isPending || authors.isPending || publishers.isPending || shelfSlots.isPending;
   const currentBookId = book?.id;
   const selectedSlotId = form.watch("shelfSlotId");
-  const slotOptions = (shelfSlots.data ?? []).map((slot) => {
-    const usedByOthers = (slot.books ?? []).filter((book) => book.id !== currentBookId).length;
-    const remaining = Math.max(0, slot.capacity - usedByOthers);
-    return { slot, remaining, selectable: remaining > 0 || slot.id === selectedSlotId };
-  });
+  const slotOptions = (shelfSlots.data ?? [])
+    .filter((slot) => slot.active) // Only show active shelves
+    .map((slot) => {
+      const usedByOthers = (slot.books ?? []).filter((book) => book.id !== currentBookId).length;
+      const remaining = Math.max(0, slot.capacity - usedByOthers);
+      return { slot, remaining, selectable: remaining > 0 || slot.id === selectedSlotId };
+    });
   const selectedSlot = slotOptions.find((entry) => entry.slot.id === selectedSlotId)?.slot ?? null;
   const selectedSlotRemaining = slotOptions.find((entry) => entry.slot.id === selectedSlotId)?.remaining ?? 0;
 

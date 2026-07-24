@@ -13,9 +13,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
             retry: 1,
             refetchOnWindowFocus: false,
+            refetchOnMount: "stale", // refetch if data is stale on mount
           },
         },
       })

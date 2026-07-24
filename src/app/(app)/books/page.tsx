@@ -30,12 +30,23 @@ export default function BooksPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<Book | null>(null);
 
   const { data: allCategories } = useQuery({ queryKey: ["categories", "all"], queryFn: categoriesApi.all });
-  const { data: shelfSlots } = useQuery({ queryKey: ["shelf-slots"], queryFn: booksApi.listShelfSlots });
+  const { data: shelfSlots } = useQuery({
+    queryKey: ["shelf-slots"],
+    queryFn: booksApi.listShelfSlots,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const deleteMutation = useMutation({
     mutationFn: booksApi.remove,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["books"] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["books"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["authors"] }),
+        queryClient.invalidateQueries({ queryKey: ["publishers"] }),
+        queryClient.invalidateQueries({ queryKey: ["shelf-slots"] }),
+      ]);
       toast.success("Book deleted", { description: `"${deleteTarget?.title}" was removed from the catalog.` });
       setDeleteTarget(null);
     },
@@ -66,6 +77,21 @@ export default function BooksPage() {
       },
       { accessorKey: "isbn", header: "ISBN", cell: ({ row }) => <span className="font-mono text-xs">{row.original.isbn}</span> },
       { accessorKey: "categoryName", header: "Category" },
+      {
+        accessorKey: "shelfSlot",
+        header: "Shelf",
+        cell: ({ row }) => {
+          const slot = row.original.shelfSlot;
+          return slot ? (
+            <div className="text-sm">
+              <p className="font-medium">{slot.code}</p>
+              <p className="text-xs text-muted-foreground">{slot.label}</p>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">Not assigned</span>
+          );
+        },
+      },
       {
         accessorKey: "availableCopies",
         header: "Copies",
@@ -147,45 +173,35 @@ export default function BooksPage() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-xl border bg-background/70 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Shelf overview</h3>
-              <p className="text-sm text-muted-foreground">Existing books are grouped by slot and capacity.</p>
-            </div>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-xs">Smart layout</span>
+      <div className="rounded-xl border bg-background/70 p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="font-medium">Shelf sections</h3>
+            <p className="text-sm text-muted-foreground">Quick overview of shelf slots and their capacity usage.</p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {(shelfSlots ?? []).map((slot) => {
-              const used = (slot.books ?? []).reduce((sum, book) => sum + Math.max(0, book.availableCopies), 0);
-              const remaining = Math.max(0, slot.capacity - used);
-              return (
-                <div key={slot.id} className="rounded-lg border bg-card p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{slot.code}</p>
-                      <p className="text-sm text-muted-foreground">{slot.label}</p>
-                    </div>
-                    <span className="rounded-full bg-muted px-2 py-1 text-[11px]">{remaining}/{slot.capacity} free</span>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                    <Boxes className="size-4" />
-                    <span>{(slot.books ?? []).length} books assigned</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/books/shelves">
+              View all shelves
+              <Boxes className="ml-2 size-4" />
+            </Link>
+          </Button>
         </div>
-
-        <div className="rounded-xl border bg-background/70 p-4">
-          <h3 className="font-medium">How it works</h3>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li>• Add shelf slots with a code, label, and capacity.</li>
-            <li>• Select a slot in the book form to assign a book to that shelf section.</li>
-            <li>• The slot badge shows available capacity live in the UI.</li>
-          </ul>
+        <div className="grid gap-3 md:grid-cols-3">
+          {(shelfSlots ?? []).slice(0, 3).map((slot) => (
+            <div key={slot.id} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">{slot.code}</p>
+                  <p className="text-sm text-muted-foreground">{slot.label}</p>
+                </div>
+                <span className="rounded-full bg-muted px-2 py-1 text-[11px]">{slot.available}/{slot.capacity} free</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Boxes className="size-4" />
+                <span>{slot.used} books assigned</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

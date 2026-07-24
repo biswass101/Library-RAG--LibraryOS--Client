@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Boxes, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Boxes, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,11 @@ import type { ShelfSlot } from "@/lib/types";
 export default function BooksShelvesPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = React.useState({ code: "", label: "", capacity: "4", description: "" });
-  const { data: shelfSlots = [], isPending } = useQuery({ queryKey: ["shelf-slots"], queryFn: booksApi.listShelfSlots });
+  const { data: shelfSlots = [], isPending } = useQuery({
+    queryKey: ["shelf-slots"],
+    queryFn: booksApi.listShelfSlots,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const createMutation = useMutation({
     mutationFn: booksApi.createShelfSlot,
@@ -39,6 +43,15 @@ export default function BooksShelvesPage() {
     onError: () => toast.error("Could not remove shelf section"),
   });
 
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => booksApi.updateShelfSlot(id, { active }),
+    onSuccess: (_, { active }) => {
+      queryClient.invalidateQueries({ queryKey: ["shelf-slots"] });
+      toast.success(active ? "Shelf activated" : "Shelf deactivated");
+    },
+    onError: () => toast.error("Could not update shelf section"),
+  });
+
   return (
     <div className="space-y-6 p-4 lg:p-6">
       <PageHeader
@@ -57,32 +70,50 @@ export default function BooksShelvesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Add a new shelf section</CardTitle>
-          <CardDescription>Each block represents a realistic shelf compartment with a visible capacity.</CardDescription>
+          <CardDescription>Create shelf compartments to organize your book inventory with capacity tracking.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
-          <Input
-            placeholder="A-01"
-            value={draft.code}
-            onChange={(e) => setDraft((current) => ({ ...current, code: e.target.value.toUpperCase() }))}
-          />
-          <Input
-            placeholder="North wall"
-            value={draft.label}
-            onChange={(e) => setDraft((current) => ({ ...current, label: e.target.value }))}
-          />
-          <Input
-            type="number"
-            min={1}
-            placeholder="4"
-            value={draft.capacity}
-            onChange={(e) => setDraft((current) => ({ ...current, capacity: e.target.value }))}
-          />
-          <Input
-            placeholder="Optional note"
-            value={draft.description}
-            onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
-          />
-          <div className="md:col-span-4 flex justify-end">
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Section code</label>
+              <Input
+                placeholder="e.g., A-01"
+                value={draft.code}
+                onChange={(e) => setDraft((current) => ({ ...current, code: e.target.value.toUpperCase() }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Unique identifier for this shelf (e.g., A-01, B-02)</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Location label</label>
+              <Input
+                placeholder="e.g., North wall - Upper"
+                value={draft.label}
+                onChange={(e) => setDraft((current) => ({ ...current, label: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Descriptive name for easy identification</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Capacity (number of books)</label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="e.g., 4"
+                value={draft.capacity}
+                onChange={(e) => setDraft((current) => ({ ...current, capacity: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">How many books can fit on this shelf</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Description (optional)</label>
+              <Input
+                placeholder="e.g., Premium display shelf"
+                value={draft.description}
+                onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Additional notes or details</p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
             <Button
               type="button"
               onClick={() => {
@@ -158,6 +189,25 @@ export default function BooksShelvesPage() {
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => updateMutation.mutate({ id: slot.id, input: { capacity: Math.max(1, (slot.capacity ?? 1) - 1) } })}>
                     -1 cap
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={slot?.active ? "outline" : "secondary"}
+                    size="sm"
+                    onClick={() => toggleActiveMutation.mutate({ id: slot.id, active: !(slot?.active ?? true) })}
+                    disabled={toggleActiveMutation.isPending}
+                  >
+                    {slot?.active ? (
+                      <>
+                        <Eye className="size-3.5" />
+                        Active
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="size-3.5" />
+                        Inactive
+                      </>
+                    )}
                   </Button>
                   <Button type="button" variant="ghost" size="sm" onClick={() => deleteMutation.mutate(slot.id)}>
                     <Trash2 className="size-3.5" />

@@ -2,6 +2,7 @@ import {
   BarChart3,
   BookCopy,
   BookMarked,
+  Boxes,
   Building2,
   CalendarClock,
   FileText,
@@ -39,6 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Catalog",
     items: [
       { title: "Books", href: "/books", icon: Library },
+      { title: "Shelves", href: "/books/shelves", icon: Boxes },
       { title: "Categories", href: "/categories", icon: Shapes },
       { title: "Authors", href: "/authors", icon: PenLine },
       { title: "Publishers", href: "/publishers", icon: Building2 },
@@ -75,6 +77,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   chat: "AI Assistant",
   books: "Books",
+  shelves: "Shelves",
   new: "New",
   edit: "Edit",
   categories: "Categories",

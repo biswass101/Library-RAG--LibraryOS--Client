@@ -46,6 +46,8 @@ export interface ShelfSlot {
   code: string;
   label: string;
   capacity: number;
+  used: number;
+  available: number;
   description?: string | null;
   active: boolean;
   books?: Array<{ id: string; title: string; availableCopies: number }>;
