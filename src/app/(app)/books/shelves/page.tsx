@@ -164,19 +164,20 @@ export default function BooksShelvesPage() {
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {(isPending ? Array.from({ length: 3 }) : filteredSlots).map((slot: any, index: number) => {
-          const used = (slot?.books ?? []).length;
-          const remaining = Math.max(0, (slot?.capacity ?? 0) - used);
+        {(isPending ? (Array.from({ length: 3 }) as (ShelfSlot | undefined)[]) : filteredSlots).map((slot) => {
+          if (!slot) return null;
+          const used = (slot.books ?? []).length;
+          const remaining = Math.max(0, slot.capacity - used);
           return (
-            <Card key={slot?.id ?? index} className="overflow-hidden">
+            <Card key={slot.id} className="overflow-hidden">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <CardTitle className="text-base">{slot?.code ?? "Loading…"}</CardTitle>
-                    <CardDescription>{slot?.label ?? "Preparing shelf data…"}</CardDescription>
+                    <CardTitle className="text-base">{slot.code}</CardTitle>
+                    <CardDescription>{slot.label}</CardDescription>
                   </div>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                    {remaining}/{slot?.capacity ?? 0} free
+                    {remaining}/{slot.capacity} free
                   </span>
                 </div>
               </CardHeader>
@@ -184,15 +185,15 @@ export default function BooksShelvesPage() {
                 <div className="rounded-xl border bg-gradient-to-br from-muted/40 to-background p-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Boxes className="size-4" />
-                    <span>{slot?.description ?? "Physical shelf block for organized book placement"}</span>
+                    <span>{slot.description ?? "Physical shelf block for organized book placement"}</span>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {Array.from({ length: Math.max(1, slot?.capacity ?? 1) }).map((_, compartmentIndex) => {
-                      const occupied = (slot?.books ?? []).slice(0, Math.max(1, slot?.capacity ?? 1));
+                    {Array.from({ length: slot.capacity }).map((_, compartmentIndex) => {
+                      const occupied = (slot.books ?? []).slice(0, slot.capacity);
                       const book = occupied[compartmentIndex];
                       const isFilled = Boolean(book);
                       return (
-                        <div key={`${slot?.id ?? index}-${compartmentIndex}`} className={`rounded-lg border p-3 ${isFilled ? "bg-primary/10" : "bg-background"}`}>
+                        <div key={`${slot.id}-${compartmentIndex}`} className={`rounded-lg border p-3 ${isFilled ? "bg-primary/10" : "bg-background"}`}>
                           <div className="flex items-center gap-2 text-sm font-medium">
                             <Boxes className="size-4" />
                             Compartment {compartmentIndex + 1}
@@ -209,20 +210,20 @@ export default function BooksShelvesPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => updateMutation.mutate({ id: slot.id, input: { capacity: (slot.capacity ?? 1) + 1 } })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => updateMutation.mutate({ id: slot.id, input: { capacity: slot.capacity + 1 } })}>
                     +1 cap
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => updateMutation.mutate({ id: slot.id, input: { capacity: Math.max(1, (slot.capacity ?? 1) - 1) } })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => updateMutation.mutate({ id: slot.id, input: { capacity: Math.max(1, slot.capacity - 1) } })}>
                     -1 cap
                   </Button>
                   <Button
                     type="button"
-                    variant={slot?.active ? "outline" : "secondary"}
+                    variant={slot.active ? "outline" : "secondary"}
                     size="sm"
-                    onClick={() => toggleActiveMutation.mutate({ id: slot.id, active: !(slot?.active ?? true) })}
+                    onClick={() => toggleActiveMutation.mutate({ id: slot.id, active: !slot.active })}
                     disabled={toggleActiveMutation.isPending}
                   >
-                    {slot?.active ? (
+                    {slot.active ? (
                       <>
                         <Eye className="size-3.5" />
                         Active
