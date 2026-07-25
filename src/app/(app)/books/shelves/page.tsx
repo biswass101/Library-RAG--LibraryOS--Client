@@ -15,16 +15,22 @@ import type { ShelfSlot } from "@/lib/types";
 export default function BooksShelvesPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = React.useState({ code: "", label: "", capacity: "4", description: "" });
+  const [showInactive, setShowInactive] = React.useState(false);
   const { data: shelfSlots = [], isPending } = useQuery({
-    queryKey: ["shelf-slots"],
-    queryFn: booksApi.listShelfSlots,
-    staleTime: 5 * 60 * 1000,
+    queryKey: ["shelf-slots", "all"],
+    queryFn: () => booksApi.listShelfSlots(),
+    staleTime: 0,
   });
+
+  const filteredSlots = React.useMemo(
+    () => shelfSlots.filter(slot => showInactive || slot.active),
+    [shelfSlots, showInactive]
+  );
 
   const createMutation = useMutation({
     mutationFn: booksApi.createShelfSlot,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shelf-slots"] });
+      queryClient.invalidateQueries({ queryKey: ["shelf-slots", "all"] });
       setDraft({ code: "", label: "", capacity: "4", description: "" });
       toast.success("Shelf section added");
     },
@@ -33,20 +39,20 @@ export default function BooksShelvesPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<Parameters<typeof booksApi.updateShelfSlot>[1]> }) => booksApi.updateShelfSlot(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shelf-slots"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shelf-slots", "all"] }),
     onError: () => toast.error("Could not update shelf section"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: booksApi.removeShelfSlot,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shelf-slots"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shelf-slots", "all"] }),
     onError: () => toast.error("Could not remove shelf section"),
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => booksApi.updateShelfSlot(id, { active }),
     onSuccess: (_, { active }) => {
-      queryClient.invalidateQueries({ queryKey: ["shelf-slots"] });
+      queryClient.invalidateQueries({ queryKey: ["shelf-slots", "all"] });
       toast.success(active ? "Shelf activated" : "Shelf deactivated");
     },
     onError: () => toast.error("Could not update shelf section"),
@@ -58,12 +64,31 @@ export default function BooksShelvesPage() {
         title="Shelf management"
         description="Create realistic shelf sections, track capacity, and place books into available compartments."
         actions={
-          <Button asChild variant="outline">
-            <Link href="/books">
-              <BookOpen data-icon="inline-start" />
-              Back to books
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant={showInactive ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowInactive(!showInactive)}
+            >
+              {showInactive ? (
+                <>
+                  <Eye className="size-4 mr-2" />
+                  Showing all
+                </>
+              ) : (
+                <>
+                  <EyeOff className="size-4 mr-2" />
+                  Showing active only
+                </>
+              )}
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/books">
+                <BookOpen data-icon="inline-start" />
+                Back to books
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -139,7 +164,7 @@ export default function BooksShelvesPage() {
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {(isPending ? Array.from({ length: 3 }) : shelfSlots).map((slot: ShelfSlot | undefined, index: number) => {
+        {(isPending ? Array.from({ length: 3 }) : filteredSlots).map((slot: any, index: number) => {
           const used = (slot?.books ?? []).length;
           const remaining = Math.max(0, (slot?.capacity ?? 0) - used);
           return (

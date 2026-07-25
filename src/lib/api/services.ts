@@ -192,7 +192,7 @@ export type BookInput = Omit<
   | "rating" | "borrowCount" | "createdAt" | "coverColor"
 >;
 
-export type ShelfSlotInput = Omit<ShelfSlot, "id" | "active" | "books" | "createdAt" | "updatedAt"> & {
+export type ShelfSlotInput = Omit<ShelfSlot, "id" | "books" | "createdAt" | "updatedAt" | "used" | "available"> & {
   active?: boolean;
 };
 

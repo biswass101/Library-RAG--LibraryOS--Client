@@ -42,7 +42,11 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
               </p>
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const isExactMatch = pathname === item.href;
+                  const hasMoreSpecificMatch = NAV_SECTIONS.flatMap(s => s.items).some(
+                    (i) => i.href !== item.href && i.href.startsWith(item.href + "/") && pathname.startsWith(i.href)
+                  );
+                  const active = isExactMatch || (pathname.startsWith(`${item.href}/`) && !hasMoreSpecificMatch);
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>
