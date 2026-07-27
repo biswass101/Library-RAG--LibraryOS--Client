@@ -51,6 +51,7 @@ import type { Reservation } from "@/lib/types";
 const schema = z.object({
   bookId: z.string().min(1, "Please select a book"),
   memberId: z.string().min(1, "Please select a member"),
+  expiresAt: z.string().min(1, "Please set an expiration date"),
 });
 
 type Values = z.infer<typeof schema>;
@@ -63,9 +64,10 @@ function CreateReservationDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const defaultExpires = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { bookId: "", memberId: "" },
+    defaultValues: { bookId: "", memberId: "", expiresAt: defaultExpires },
   });
 
   const { data: books } = useQuery({
@@ -81,13 +83,18 @@ function CreateReservationDialog({
   });
 
   const createMutation = useMutation({
-    mutationFn: (v: Values) => reservationsApi.create(v),
+    mutationFn: (v: Values) =>
+      reservationsApi.create({
+        bookId: v.bookId,
+        memberId: v.memberId,
+        expiresAt: new Date(v.expiresAt).toISOString(),
+      }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["reservations"] });
       toast.success("Reservation created", {
         description: `"${res.bookTitle}" reserved for ${res.memberName} (queue #${res.queuePosition}).`,
       });
-      form.reset();
+      form.reset({ bookId: "", memberId: "", expiresAt: defaultExpires });
       onOpenChange(false);
     },
     onError: (error) =>
@@ -157,6 +164,27 @@ function CreateReservationDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiresAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expires in</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <CalendarClock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="date"
+                        className="pl-9 w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                        disabled={isBusy}
+                        {...field}
+                      />
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

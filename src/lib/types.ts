@@ -84,6 +84,20 @@ export interface Book {
 export type MemberStatus = "active" | "suspended" | "expired";
 export type MembershipPlan = "standard" | "premium" | "student";
 
+export interface PlanConstraints {
+  maxBorrows: number;
+  borrowDurationDays: number;
+  maxRenewals: number;
+  renewalExtensionDays: number;
+  finePerDay: number;
+  maxReservations: number;
+  membershipFee: number;
+  renewalFee: number;
+  gracePeriodDays: number;
+}
+
+export type AllPlanConstraints = Record<MembershipPlan, PlanConstraints>;
+
 export interface Member {
   id: string;
   name: string;

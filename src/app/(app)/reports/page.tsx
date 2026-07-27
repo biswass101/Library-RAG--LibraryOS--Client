@@ -25,8 +25,9 @@ import {
   NamedBarChart,
   SharePieChart,
 } from "@/components/charts/charts";
-import { reportsApi } from "@/lib/api/services";
+import { reportsApi, membersApi } from "@/lib/api/services";
 import { formatCurrency, formatDate } from "@/lib/format";
+import type { AllPlanConstraints } from "@/lib/types";
 
 const FADE = {
   initial: { opacity: 0, y: 12 },
@@ -171,8 +172,21 @@ function MemberReportTab() {
     queryFn: reportsApi.memberReport,
   });
 
+  const { data: planConstraints } = useQuery({
+    queryKey: ["plan-constraints"],
+    queryFn: membersApi.getPlanConstraints,
+    staleTime: 5 * 60_000,
+  });
+
   const total = data?.byStatus.reduce((s, x) => s + x.value, 0) ?? 0;
   const active = data?.byStatus.find((x) => x.name === "active")?.value ?? 0;
+
+  const planRevenueData = planConstraints
+    ? (data?.byPlan ?? []).map((p) => {
+        const c = planConstraints[p.name as keyof AllPlanConstraints];
+        return { name: p.name, value: c ? p.value * c.membershipFee : 0 };
+      })
+    : [];
 
   return (
     <motion.div className="space-y-4" {...FADE}>
@@ -180,7 +194,7 @@ function MemberReportTab() {
         <SummaryCard icon={Users} label="Total members" value={String(total)} color="bg-primary/10 text-primary" />
         <SummaryCard icon={Users} label="Active" value={String(active)} color="bg-chart-3/15 text-chart-3" />
         <SummaryCard icon={Users} label="Suspended" value={String(data?.byStatus.find((x) => x.name === "suspended")?.value ?? "—")} color="bg-destructive/10 text-destructive" />
-        <SummaryCard icon={Users} label="Expired" value={String(data?.byStatus.find((x) => x.name === "expired")?.value ?? "—")} color="bg-muted text-muted-foreground" />
+        <SummaryCard icon={DollarSign} label="Est. Revenue" value={formatCurrency(planRevenueData.reduce((s, x) => s + x.value, 0))} sub="From membership fees" color="bg-chart-4/15 text-chart-4" />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportCard title="By Plan" isLoading={isPending} isError={isError} onRetry={refetch} height={240}>
@@ -190,6 +204,61 @@ function MemberReportTab() {
           {data && <SharePieChart data={data.byStatus} />}
         </ReportCard>
       </div>
+
+      {/* Plan Comparison Table */}
+      {planConstraints && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Plan Comparison</CardTitle>
+            <CardDescription>Membership tier benefits and constraints</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Fee</TableHead>
+                    <TableHead>Renewal</TableHead>
+                    <TableHead>Max Books</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Renewals</TableHead>
+                    <TableHead>Fine/Day</TableHead>
+                    <TableHead>Grace</TableHead>
+                    <TableHead>Reservations</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(["premium", "standard", "student"] as const).map((plan) => {
+                    const c = planConstraints[plan];
+                    return (
+                      <TableRow key={plan}>
+                        <TableCell className="font-medium capitalize">{plan}</TableCell>
+                        <TableCell className="tabular-nums">{formatCurrency(c.membershipFee)}</TableCell>
+                        <TableCell className="tabular-nums">{formatCurrency(c.renewalFee)}</TableCell>
+                        <TableCell className="tabular-nums">{c.maxBorrows}</TableCell>
+                        <TableCell>{c.borrowDurationDays} days</TableCell>
+                        <TableCell className="tabular-nums">{c.maxRenewals}</TableCell>
+                        <TableCell className="tabular-nums">{formatCurrency(c.finePerDay)}</TableCell>
+                        <TableCell>{c.gracePeriodDays} days</TableCell>
+                        <TableCell className="tabular-nums">{c.maxReservations}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Revenue by Plan */}
+      {planRevenueData.length > 0 && (
+        <ReportCard title="Revenue by Plan" description="Estimated membership fee revenue" isLoading={isPending} isError={isError} onRetry={refetch} height={200}>
+          <NamedBarChart data={planRevenueData} color="var(--chart-4)" />
+        </ReportCard>
+      )}
+
       <ReportCard title="Monthly Growth" description="New members per month" isLoading={isPending} isError={isError} onRetry={refetch} height={240}>
         {data && <MonthlyStatsChart data={data.growth} />}
       </ReportCard>

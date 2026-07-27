@@ -158,15 +158,30 @@ export function UpcomingDueWidget() {
           {data.map((borrow) => {
             const days = daysUntil(borrow.dueAt);
             const urgent = days <= 2;
+            const isOverdue = borrow.status === "overdue" && !borrow.returnedAt;
+            let fineDisplay = null;
+
+            if (isOverdue) {
+              const daysOverdue = Math.ceil(
+                (new Date().getTime() - new Date(borrow.dueAt).getTime()) / (1000 * 60 * 60 * 24)
+              );
+              const calculatedFine = daysOverdue * 0.5;
+              const totalFine = Math.max(borrow.fine, calculatedFine);
+              fineDisplay = `Fine: $${totalFine.toFixed(2)}`;
+            }
+
             return (
               <li key={borrow.id} className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{borrow.bookTitle}</p>
                   <p className="truncate text-xs text-muted-foreground">{borrow.memberName}</p>
+                  {fineDisplay && (
+                    <p className="mt-1 text-[11px] font-semibold text-destructive">{fineDisplay}</p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className={cn("text-xs font-semibold", urgent ? "text-destructive" : "text-muted-foreground")}>
-                    {days === 0 ? "Due today" : `${days} day${days > 1 ? "s" : ""}`}
+                  <p className={cn("text-xs font-semibold", urgent || isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                    {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days} day${days > 1 ? "s" : ""}`}
                   </p>
                   <p className="text-[11px] text-muted-foreground/70">{formatDate(borrow.dueAt)}</p>
                 </div>

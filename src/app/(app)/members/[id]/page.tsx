@@ -45,7 +45,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { MemberFormDialog } from "@/features/members/member-form-dialog";
 import { membersApi } from "@/lib/api/services";
 import { formatCurrency, formatDate, formatRelative, initials } from "@/lib/format";
-import type { Member } from "@/lib/types";
+import type { Member, PlanConstraints } from "@/lib/types";
 
 const PLAN_COLORS: Record<string, string> = {
   premium: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
@@ -103,6 +103,12 @@ export default function MemberDetailPage() {
   const { data: member, isPending, isError, refetch } = useQuery({
     queryKey: ["members", id],
     queryFn: () => membersApi.get(id),
+  });
+
+  const { data: planConstraints } = useQuery({
+    queryKey: ["plan-constraints"],
+    queryFn: membersApi.getPlanConstraints,
+    staleTime: 5 * 60_000,
   });
 
   const borrowHistory = useQuery({
@@ -217,6 +223,40 @@ export default function MemberDetailPage() {
                 <MetaItem icon={Calendar} label="Expires" value={formatDate(member.expiresAt)} />
                 <MetaItem icon={User} label="Joined" value={formatDate(member.joinedAt)} />
               </div>
+              {planConstraints?.[member.plan] && (
+                <>
+                  <Separator />
+                  <div className="w-full">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Plan Limits</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Max Borrows</p>
+                        <p className="font-semibold">{member.activeBorrows}/{planConstraints[member.plan].maxBorrows}</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Borrow Period</p>
+                        <p className="font-semibold">{planConstraints[member.plan].borrowDurationDays} days</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Max Renewals</p>
+                        <p className="font-semibold">{planConstraints[member.plan].maxRenewals}</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Fine Rate</p>
+                        <p className="font-semibold">{formatCurrency(planConstraints[member.plan].finePerDay)}/day</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Reservations</p>
+                        <p className="font-semibold">Max {planConstraints[member.plan].maxReservations}</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <p className="text-muted-foreground">Grace Period</p>
+                        <p className="font-semibold">{planConstraints[member.plan].gracePeriodDays} days</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -293,13 +333,37 @@ export default function MemberDetailPage() {
                                 <StatusBadge status={b.status} />
                               </TableCell>
                               <TableCell>
-                                {b.fine > 0 ? (
-                                  <span className="font-medium text-destructive">
-                                    {formatCurrency(b.fine)}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
+                                {(() => {
+                                  const isOverdue = b.status === "overdue" && !b.returnedAt;
+                                  if (isOverdue) {
+                                    const memberPlanConstraints = planConstraints?.[member.plan];
+                                    const fineRate = memberPlanConstraints?.finePerDay ?? 0.5;
+                                    const graceDays = memberPlanConstraints?.gracePeriodDays ?? 0;
+                                    const daysOverdue = Math.ceil(
+                                      (new Date().getTime() - new Date(b.dueAt).getTime()) / (1000 * 60 * 60 * 24)
+                                    );
+                                    const chargeableDays = Math.max(0, daysOverdue - graceDays);
+                                    const calculatedFine = chargeableDays * fineRate;
+                                    const totalFine = Math.max(b.fine, calculatedFine);
+                                    return (
+                                      <div className="flex flex-col">
+                                        <span className="font-semibold text-destructive">
+                                          {formatCurrency(totalFine)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {daysOverdue}d overdue{graceDays > 0 ? ` (${graceDays}d grace)` : ""}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+                                  return b.fine > 0 ? (
+                                    <span className="font-medium text-destructive">
+                                      {formatCurrency(b.fine)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  );
+                                })()}
                               </TableCell>
                             </TableRow>
                           ))}

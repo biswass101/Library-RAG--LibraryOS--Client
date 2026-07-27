@@ -116,7 +116,7 @@ export default function BorrowsPage() {
         cell: ({ row }) => {
           const borrow = row.original;
           if (borrow.returnedAt) return <span className="text-muted-foreground">—</span>;
-          const overdue = isOverdue(borrow.dueAt);
+          const overdue = borrow.status === "overdue";
           const days = daysUntil(borrow.dueAt);
           return (
             <div className="flex items-center gap-1.5">
@@ -155,14 +155,37 @@ export default function BorrowsPage() {
       {
         accessorKey: "fine",
         header: "Fine",
-        cell: ({ row }) =>
-          row.original.fine > 0 ? (
+        cell: ({ row }) => {
+          const borrow = row.original;
+          const isOverdue = borrow.status === "overdue" && !borrow.returnedAt;
+
+          if (isOverdue) {
+            const daysOverdue = Math.ceil(
+              (new Date().getTime() - new Date(borrow.dueAt).getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const calculatedFine = daysOverdue * 0.5;
+            const totalFine = Math.max(borrow.fine, calculatedFine);
+
+            return (
+              <div className="flex flex-col">
+                <span className="font-semibold tabular-nums text-destructive">
+                  {formatCurrency(totalFine)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {daysOverdue}d overdue
+                </span>
+              </div>
+            );
+          }
+
+          return borrow.fine > 0 ? (
             <span className="font-semibold tabular-nums text-destructive">
-              {formatCurrency(row.original.fine)}
+              {formatCurrency(borrow.fine)}
             </span>
           ) : (
             <span className="text-muted-foreground">—</span>
-          ),
+          );
+        },
       },
       {
         id: "actions",

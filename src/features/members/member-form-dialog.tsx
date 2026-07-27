@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookCopy, CalendarDays, DollarSign, Loader2, RefreshCw, Shield } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,7 +34,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { membersApi, type MemberInput } from "@/lib/api/services";
-import type { Member } from "@/lib/types";
+import { formatCurrency } from "@/lib/format";
+import type { Member, MembershipPlan, PlanConstraints } from "@/lib/types";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -53,8 +55,51 @@ interface MemberFormDialogProps {
   editing?: Member | null;
 }
 
+function PlanBenefitsCard({ plan, constraints }: { plan: MembershipPlan; constraints: PlanConstraints | undefined }) {
+  if (!constraints) return null;
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Shield className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium capitalize">{plan} Plan Benefits</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex items-center gap-1.5">
+          <BookCopy className="h-3 w-3 text-muted-foreground" />
+          <span>Max {constraints.maxBorrows} books</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <CalendarDays className="h-3 w-3 text-muted-foreground" />
+          <span>{constraints.borrowDurationDays} days/borrow</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <RefreshCw className="h-3 w-3 text-muted-foreground" />
+          <span>{constraints.maxRenewals} renewals</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <DollarSign className="h-3 w-3 text-muted-foreground" />
+          <span>{formatCurrency(constraints.finePerDay)}/day fine</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-1 border-t text-xs">
+        <span className="text-muted-foreground">Membership fee</span>
+        <Badge variant="secondary" className="font-mono">
+          {formatCurrency(constraints.membershipFee)}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
 export function MemberFormDialog({ open, onOpenChange, editing }: MemberFormDialogProps) {
   const queryClient = useQueryClient();
+
+  const { data: planConstraints } = useQuery({
+    queryKey: ["plan-constraints"],
+    queryFn: membersApi.getPlanConstraints,
+    staleTime: 5 * 60_000,
+  });
 
   const defaultExpiry = new Date(Date.now() + 365 * 86_400_000).toISOString().split("T")[0];
 
@@ -70,6 +115,9 @@ export function MemberFormDialog({ open, onOpenChange, editing }: MemberFormDial
       expiresAt: defaultExpiry,
     },
   });
+
+  const selectedPlan = form.watch("plan") as MembershipPlan;
+  const currentConstraints = planConstraints?.[selectedPlan];
 
   React.useEffect(() => {
     if (editing) {
@@ -202,9 +250,15 @@ export function MemberFormDialog({ open, onOpenChange, editing }: MemberFormDial
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="premium">
+                          Premium {planConstraints && `(${formatCurrency(planConstraints.premium.membershipFee)})`}
+                        </SelectItem>
+                        <SelectItem value="standard">
+                          Standard {planConstraints && `(${formatCurrency(planConstraints.standard.membershipFee)})`}
+                        </SelectItem>
+                        <SelectItem value="student">
+                          Student {planConstraints && `(${formatCurrency(planConstraints.student.membershipFee)})`}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -233,6 +287,11 @@ export function MemberFormDialog({ open, onOpenChange, editing }: MemberFormDial
                   </FormItem>
                 )}
               />
+
+              <div className="sm:col-span-2">
+                <PlanBenefitsCard plan={selectedPlan} constraints={currentConstraints} />
+              </div>
+
               <FormField
                 control={form.control}
                 name="expiresAt"

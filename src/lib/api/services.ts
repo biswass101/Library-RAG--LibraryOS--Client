@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type {
   Activity,
+  AllPlanConstraints,
   AppNotification,
   Author,
   Book,
@@ -303,6 +304,10 @@ export const membersApi = {
     const res = await apiClient.get(`/members/${memberId}/fine-history`);
     return res.data.map(mapFine);
   },
+  async getPlanConstraints(): Promise<AllPlanConstraints> {
+    const res = await apiClient.get("/members/plan-constraints");
+    return res.data;
+  },
 };
 
 /* ------------------------------- Borrows --------------------------------- */
@@ -332,7 +337,7 @@ export const finesApi = {
     return mapPage(res.data, mapFine);
   },
   async settle(id: string, mode: "paid" | "waived"): Promise<Fine> {
-    const res = await apiClient.patch(`/fines/${id}/settle`, { status: mode });
+    const res = await apiClient.patch(`/fines/${id}/settle`, { action: mode });
     return mapFine(res.data);
   },
 };
@@ -344,7 +349,7 @@ export const reservationsApi = {
     const res = await apiClient.get(`/reservations?${buildQuery(params)}`);
     return mapPage(res.data, mapReservation);
   },
-  async create(input: { bookId: string; memberId: string }): Promise<Reservation> {
+  async create(input: { bookId: string; memberId: string; expiresAt: string }): Promise<Reservation> {
     const res = await apiClient.post("/reservations", input);
     return mapReservation(res.data);
   },
