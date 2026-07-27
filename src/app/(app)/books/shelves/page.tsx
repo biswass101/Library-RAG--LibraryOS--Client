@@ -152,6 +152,7 @@ export default function BooksShelvesPage() {
                   label: draft.label.trim(),
                   capacity: Number.isFinite(capacity) ? capacity : 1,
                   description: draft.description.trim() || undefined,
+                  active: true,
                 });
               }}
               disabled={createMutation.isPending}

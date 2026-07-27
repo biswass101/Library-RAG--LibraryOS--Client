@@ -356,7 +356,6 @@ export default function ReservationsPage() {
         ]}
         emptyTitle="No reservations"
         emptyDescription="Create a reservation to hold a book for a member."
-        emptyIcon={CalendarClock}
         getRowId={(r) => r.id}
         initialSort={{ id: "reservedAt", desc: true }}
       />

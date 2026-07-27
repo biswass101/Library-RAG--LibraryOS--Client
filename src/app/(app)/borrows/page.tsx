@@ -267,7 +267,6 @@ export default function BorrowsPage() {
         ]}
         emptyTitle="No borrow records"
         emptyDescription="Issue a book to a member to create your first record."
-        emptyIcon={BookCopy}
         getRowId={(b) => b.id}
         initialSort={{ id: "issuedAt", desc: true }}
       />

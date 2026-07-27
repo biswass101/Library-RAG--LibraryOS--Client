@@ -96,7 +96,8 @@ export function TaxonomyPage<TRow extends TaxonomyRow, TSchema extends z.ZodType
   const [deleteTarget, setDeleteTarget] = React.useState<TRow | null>(null);
 
   const form = useForm<Values>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema as any),
     defaultValues: emptyValues,
   });
 

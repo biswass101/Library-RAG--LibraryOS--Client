@@ -17,7 +17,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
             retry: 1,
             refetchOnWindowFocus: false,
-            refetchOnMount: "stale", // refetch if data is stale on mount
+            refetchOnMount: true,
           },
         },
       })

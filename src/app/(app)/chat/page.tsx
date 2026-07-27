@@ -159,7 +159,9 @@ function ChatBubble({ message, isStreaming }: { message: ChatMessage; isStreamin
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  code({ node, inline, className, children, ...props }: any) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  code(props: any) {
+                    const { inline, className, children } = props;
                     const match = /language-(\w+)/.exec(className || "");
                     return !inline && match ? (
                       <SyntaxHighlighter
@@ -167,12 +169,11 @@ function ChatBubble({ message, isStreaming }: { message: ChatMessage; isStreamin
                         language={match[1]}
                         PreTag="div"
                         className="rounded-md my-2 max-w-full overflow-x-auto"
-                        {...props}
                       >
                         {String(children).replace(/\n$/, "")}
                       </SyntaxHighlighter>
                     ) : (
-                      <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono text-[13px]" {...props}>
+                      <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono text-[13px]">
                         {children}
                       </code>
                     );

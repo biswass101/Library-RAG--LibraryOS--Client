@@ -62,51 +62,81 @@ const bookStatus = (available: number, total: number): Book["status"] => {
   return "available";
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapBook = (raw: any): Book => ({
-  ...raw,
-  categoryName: raw.categoryName ?? raw.category?.name ?? "—",
-  authorName: raw.authorName ?? raw.author?.name ?? "—",
-  publisherName: raw.publisherName ?? raw.publisher?.name ?? "—",
-  coverColor: raw.coverColor ?? FALLBACK_COVER,
-  rating: raw.rating ?? 0,
-  status: bookStatus(raw.availableCopies, raw.totalCopies),
-});
+const mapBook = (raw: Record<string, unknown>): Book => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const book = raw as any as Book;
+  return {
+    ...book,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    categoryName: raw.categoryName ?? (raw.category as any)?.name ?? "—",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    authorName: raw.authorName ?? (raw.author as any)?.name ?? "—",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    publisherName: raw.publisherName ?? (raw.publisher as any)?.name ?? "—",
+    coverColor: (raw.coverColor as string) ?? FALLBACK_COVER,
+    rating: (raw.rating as number) ?? 0,
+    status: bookStatus(raw.availableCopies as number, raw.totalCopies as number),
+  };
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapBorrow = (raw: any): Borrow => ({
-  ...raw,
-  bookTitle: raw.bookTitle ?? raw.book?.title ?? "—",
-  memberName: raw.memberName ?? raw.member?.name ?? "—",
-  fine: raw.fine ?? raw.fineAmount ?? 0,
-});
+const mapBorrow = (raw: Record<string, unknown>): Borrow => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const borrow = raw as any as Borrow;
+  return {
+    ...borrow,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bookTitle: raw.bookTitle ?? (raw.book as any)?.title ?? "—",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    memberName: raw.memberName ?? (raw.member as any)?.name ?? "—",
+    fine: (raw.fine as number) ?? (raw.fineAmount as number) ?? 0,
+  };
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapReservation = (raw: any): Reservation => ({
-  ...raw,
-  bookTitle: raw.bookTitle ?? raw.book?.title ?? "—",
-  memberName: raw.memberName ?? raw.member?.name ?? "—",
-});
+const mapReservation = (raw: Record<string, unknown>): Reservation => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reservation = raw as any as Reservation;
+  return {
+    ...reservation,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bookTitle: raw.bookTitle ?? (raw.book as any)?.title ?? "—",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    memberName: raw.memberName ?? (raw.member as any)?.name ?? "—",
+  };
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapFine = (raw: any): Fine => ({
-  ...raw,
-  memberName: raw.memberName ?? raw.member?.name ?? "—",
-  bookTitle: raw.bookTitle ?? raw.borrow?.book?.title ?? "—",
-});
+const mapFine = (raw: Record<string, unknown>): Fine => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fine = raw as any as Fine;
+  return {
+    ...fine,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    memberName: raw.memberName ?? (raw.member as any)?.name ?? "—",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bookTitle: raw.bookTitle ?? (raw.borrow as any)?.book?.title ?? "—",
+  };
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapDocument = (raw: any): LibraryDocument => ({
-  ...raw,
-  uploadedAt: raw.uploadedAt ?? raw.createdAt,
-  uploadedBy: raw.user?.name ?? raw.uploadedBy ?? "—",
-});
+const mapDocument = (raw: Record<string, unknown>): LibraryDocument => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = raw as any as LibraryDocument;
+  return {
+    ...doc,
+    uploadedAt: (raw.uploadedAt as string) ?? (raw.createdAt as string),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    uploadedBy: (raw.user as any)?.name ?? raw.uploadedBy ?? "—",
+  };
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapPage = <T>(data: any, map: (raw: any) => T): Paginated<T> => ({
-  ...data,
-  items: (data.items ?? []).map(map),
-});
+const mapPage = <T>(data: Record<string, unknown>, map: (raw: Record<string, unknown>) => T): Paginated<T> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = data as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items = (data.items as any) ?? [];
+  return {
+    ...page,
+    items: items.map(map),
+  } as Paginated<T>;
+};
 
 /* ------------------------------- Auth ---------------------------------- */
 
@@ -250,11 +280,11 @@ function crud<T>(endpoint: string) {
       const res = await apiClient.get(`${endpoint}?pageSize=1000`);
       return res.data.items || [];
     },
-    async create(input: any): Promise<T> {
+    async create(input: Record<string, unknown>): Promise<T> {
       const res = await apiClient.post(endpoint, input);
       return res.data;
     },
-    async update(id: string, input: any): Promise<T> {
+    async update(id: string, input: Record<string, unknown>): Promise<T> {
       const res = await apiClient.put(`${endpoint}/${id}`, input);
       return res.data;
     },

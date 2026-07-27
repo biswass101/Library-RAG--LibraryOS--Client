@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -37,7 +38,7 @@ const schema = z
 
 type Values = z.infer<typeof schema>;
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token") ?? "demo-token";
@@ -211,5 +212,13 @@ export default function ResetPasswordPage() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

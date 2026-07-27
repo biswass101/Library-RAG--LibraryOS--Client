@@ -369,7 +369,6 @@ export default function DocumentsPage() {
         ]}
         emptyTitle="No documents yet"
         emptyDescription="Upload a PDF, DOCX, TXT, or image to build the AI knowledge base."
-        emptyIcon={FileText}
         getRowId={(d) => d.id}
         initialSort={{ id: "uploadedAt", desc: true }}
       />
