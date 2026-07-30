@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description:
     "Smart library management system with an AI-powered RAG assistant for catalog, circulation, members and documents.",
   icons: {
-    icon: "/Library.jpg",
+    icon: "/favicon.ico",
   },
 };
 
