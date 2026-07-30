@@ -4,7 +4,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="grid min-h-svh w-full lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex dark:bg-card">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex dark:bg-primary">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-30"
@@ -44,7 +44,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Form panel */}
-      <div className="flex items-center justify-center p-6 sm:p-10">
+      <div className="flex items-center justify-center bg-background p-6 sm:p-10">
         <div className="w-full max-w-sm">{children}</div>
       </div>
     </div>
