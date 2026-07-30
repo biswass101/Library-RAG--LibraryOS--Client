@@ -466,26 +466,18 @@ const persist = () => saveConversations(store());
 
 export const chatApi = {
   async conversations(): Promise<Conversation[]> {
-    return [...store()].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+    const res = await apiClient.get("/rag/conversations");
+    return res.data.sort((a: Conversation, b: Conversation) =>
+      +new Date(b.updatedAt) - +new Date(a.updatedAt)
+    );
   },
   async createConversation(firstMessage: string): Promise<Conversation> {
-    const conv: Conversation = {
-      id: uid(),
-      title: firstMessage.length > 42 ? `${firstMessage.slice(0, 42)}…` : firstMessage,
-      updatedAt: new Date().toISOString(),
-      messages: [],
-    };
-    store().unshift(conv);
-    persist();
-    return conv;
+    const title = firstMessage.length > 42 ? `${firstMessage.slice(0, 42)}…` : firstMessage;
+    const res = await apiClient.post("/rag/conversations", { title });
+    return res.data;
   },
   async deleteConversation(id: string): Promise<void> {
-    const convs = store();
-    const idx = convs.findIndex((c) => c.id === id);
-    if (idx >= 0) {
-      convs.splice(idx, 1);
-      persist();
-    }
+    await apiClient.delete(`/rag/conversations/${id}`);
   },
   /**
    * Ask a question within a conversation. Both the user message and the AI
@@ -496,32 +488,26 @@ export const chatApi = {
     conversationId: string,
     question: string,
   ): Promise<{ conversation: Conversation; userMsg: ChatMessage; assistantMsg: ChatMessage }> {
-    const conv = store().find((c) => c.id === conversationId);
-    if (!conv) throw new Error("Conversation not found");
+    const convRes = await apiClient.get(`/rag/conversations/${conversationId}`);
+    const conv = convRes.data;
 
     const history = conv.messages
       .slice(-8)
-      .map(({ role, content }) => ({ role, content }));
+      .map(({ role, content }: ChatMessage) => ({ role, content }));
 
     // Call real RAG backend with recent conversation turns for follow-up context
     const res = await apiClient.post("/rag/chat", { question, conversationId, history });
     const { answer, sources } = res.data;
 
-    const now = new Date().toISOString();
-    const userMsg: ChatMessage = { id: uid(), role: "user", content: question, createdAt: now };
-    const assistantMsg: ChatMessage = {
-      id: uid(),
-      role: "assistant",
-      content: answer,
-      sources,
-      createdAt: new Date().toISOString(),
-    };
+    // Fetch updated conversation (messages added by backend)
+    const updatedRes = await apiClient.get(`/rag/conversations/${conversationId}`);
+    const updatedConv = updatedRes.data;
 
-    conv.messages.push(userMsg, assistantMsg);
-    conv.updatedAt = assistantMsg.createdAt;
-    persist();
+    // Find the newly added messages
+    const userMsg = updatedConv.messages[updatedConv.messages.length - 2];
+    const assistantMsg = updatedConv.messages[updatedConv.messages.length - 1];
 
-    return { conversation: { ...conv, messages: [...conv.messages] }, userMsg, assistantMsg };
+    return { conversation: updatedConv, userMsg, assistantMsg };
   },
 };
 
