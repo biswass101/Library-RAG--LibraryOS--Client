@@ -38,6 +38,7 @@ export default function LoginPage() {
   });
 
   const { isSubmitting } = form.formState;
+  const [isDemoLoading, setIsDemoLoading] = React.useState(false);
 
   async function onSubmit(values: LoginValues) {
     try {
@@ -48,6 +49,19 @@ export default function LoginPage() {
       const message = "Invalid credentials.";
       form.setError("root", { message });
       toast.error("Sign in failed", { description: message });
+    }
+  }
+
+  async function loginAsDemo() {
+    setIsDemoLoading(true);
+    try {
+      await login("demo@libraryos.demo", "demo123");
+      toast.success("Welcome to Demo!", { description: "You have signed in as demo user." });
+      router.push("/dashboard");
+    } catch (error) {
+      toast.error("Demo login failed", { description: "Unable to sign in with demo account." });
+    } finally {
+      setIsDemoLoading(false);
     }
   }
 
@@ -127,13 +141,26 @@ export default function LoginPage() {
             </p>
           ) : null}
 
-          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || isDemoLoading}>
             {isSubmitting ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
             {isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            size="lg"
+            disabled={isSubmitting || isDemoLoading}
+            onClick={loginAsDemo}
+          >
+            {isDemoLoading ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+            {isDemoLoading ? "Signing in as Demo…" : "Login as Demo"}
+          </Button>
+
           <div>
-            <p className="text-sm font-medium text-primary"> Demo Credentials: </p>
-               <p className="text-xs">demo@libraryos.demo | demo123</p>
+            <p className="text-sm font-medium text-primary">Demo Credentials:</p>
+            <p className="text-xs">demo@libraryos.demo | demo123</p>
           </div>
         </form>
       </Form>
