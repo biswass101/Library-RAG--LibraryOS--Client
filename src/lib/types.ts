@@ -1,6 +1,6 @@
 /** Core domain types shared across the app. */
 
-export type Role = "admin" | "librarian" | "member";
+export type Role = "admin" | "librarian" | "member" | "demo";
 
 export interface User {
   id: string;

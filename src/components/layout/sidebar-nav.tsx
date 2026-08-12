@@ -21,7 +21,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
       <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
         <div className="flex size-8 overflow-hidden rounded-lg bg-primary/10 shadow-sm">
           <Image
-            src="/Library.jpg"
+            src="/Library.png"
             alt="Library logo"
             width={32}
             height={32}

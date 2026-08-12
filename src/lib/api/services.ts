@@ -161,7 +161,8 @@ export const authApi = {
     return res.data[0]; 
   },
   async updateProfile(patch: Partial<Pick<User, "name" | "email" | "phone" | "bio">>): Promise<User> {
-    return patch as User; // Placeholder
+    const res = await apiClient.patch("/auth/profile", patch);
+    return res.data;
   },
   async changePassword(current: string, next: string): Promise<{ message: string }> {
     const res = await apiClient.post("/auth/change-password", {

@@ -49,7 +49,7 @@ const profileSchema = z.object({
 const passwordSchema = z
   .object({
     current: z.string().min(1, "Current password is required"),
-    next: z.string().min(8, "New password must be at least 8 characters"),
+    next: z.string().min(6, "New password must be at least 6 characters"),
     confirm: z.string().min(1, "Please confirm your password"),
   })
   .refine((d) => d.next === d.confirm, {
@@ -62,6 +62,7 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 
 function ProfileTab() {
   const { user, setUser } = useAuth();
+  const isDemo = user?.role === "demo";
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -83,6 +84,32 @@ function ProfileTab() {
   });
 
   const isBusy = mutation.isPending;
+
+  if (isDemo) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+                {user ? initials(user.name) : "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <CardTitle>{user?.name}</CardTitle>
+              <CardDescription className="capitalize">{user?.role}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6">
+          <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+            Demo accounts cannot modify profile settings. This account is read-only for demonstration purposes.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -176,6 +203,8 @@ function ProfileTab() {
 }
 
 function SecurityTab() {
+  const { user } = useAuth();
+  const isDemo = user?.role === "demo";
   const [showCurrent, setShowCurrent] = React.useState(false);
   const [showNext, setShowNext] = React.useState(false);
 
@@ -200,6 +229,23 @@ function SecurityTab() {
   });
 
   const isBusy = mutation.isPending;
+
+  if (isDemo) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Change Password</CardTitle>
+          <CardDescription>Choose a strong password you haven&apos;t used before.</CardDescription>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6">
+          <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+            Demo accounts cannot change their password. This account is read-only for demonstration purposes.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
