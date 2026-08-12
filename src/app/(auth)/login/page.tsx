@@ -131,6 +131,10 @@ export default function LoginPage() {
             {isSubmitting ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
             {isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
+          <div>
+            <p className="text-sm font-medium text-primary"> Demo Credentials: </p>
+               <p className="text-xs">demo@libraryos.demo | demo123</p>
+          </div>
         </form>
       </Form>
     </div>
